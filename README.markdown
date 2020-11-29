@@ -1,7 +1,7 @@
 Enpass 6 Encryption Details
 ===========================
 
-An attempt to recover passwords from the encrypted Enpass database. Unfortunately the Enpass developers are still not willing to share any information on the [encryption details](https://discussion.enpass.io/index.php?/topic/4446-enpass-6-encryption-details/). The aim of this repo is to share this information with the community in order to advance the [progress](https://github.com/hazcod/enpass-cli/issues/16) on programming an Enpass6 command-line interface.
+A proof-of-concept to recover passwords from the encrypted Enpass database. Unfortunately the Enpass developers were not willing to share any information on the [encryption details](https://discussion.enpass.io/index.php?/topic/4446-enpass-6-encryption-details/). Luckily the community was able to make [progress](https://github.com/hazcod/enpass-cli/issues/16) and reverse engineer the database layout and encryption.
 
 Contents
 --------
@@ -9,7 +9,7 @@ Contents
   * `vault/vault.enpassdb`: sample Enpass vault with known contents and master password
   * `vault/vault.json`: the corresponding Enpass metadata for the sake of completeness
   * `vault/vault.sqlite`: the decrypted sqlite for easier inspection
-  * `enpass-cli-v6.py`: python script to explore the database contents and try to recover the passwords
+  * `enpass-cli-v6.py`: python script to access the passwords inside the Enpass vault
 
 
 Vault database structure
@@ -57,27 +57,16 @@ Sample Vault
 
 With 11 items and passwords of varying length.
 
-| id | title  | cleartext = password              | hex(cipher) = hex(itemfield['value'])                                                              | len(cleartext)   | len(cipher)[bytes] |
-|----|--------|-----------------------------------|----------------------------------------------------------------------------------------------------|------------------|--------------------|
-|  1 | item1  | 1                                 | 7385c1be632c8502f982b461702a9bf955                                                                 |  1 [byte]        | 17 = 1x16 +  1     |
-|  2 | item2  | 12                                | 705275f0a16e089062a3090af7a99925b7a0                                                               |  2               | 18 = 1x16 +  2     |
-|  3 | item3  | 123                               | f01d5161cc32d8ef2eb1d639c10c9c9a1974f9                                                             |  3               | 19 = 1x16 +  3     |
-|  4 | item14 | 12345678901234                    | 59103da1b4df3b477750a9b81026d16e317e42f86c94720513e33eecbc3e                                       | 14               | 30 = 1x16 + 14     |
-|  5 | item15 | 123456789012345                   | 9875c2944f18f7ebbe34e12d61d0de4a1750bea540bd10570f875a446c34da                                     | 15               | 31 = 1x16 + 15     |
-|  6 | item16 | 1234567890123456                  | cc9851b3ac19a0a2f3274a7b08bdf41053b4148dff40318f19717e117d5c31e3                                   | 16               | 32 = 2x16          |
-|  7 | item17 | 12345678901234567                 | a59f45c847e88905950b81779f56d77f135c6d8fa370ce5342b458d60d791c2969                                 | 17               | 33 = 2x16 +  1     |
-|  8 | item18 | 123456789012345678                | 9e6d6e30ad5b24d597ac2a0d6b41205cd99769a6397db9d4d35cf6bbc6e4e596f746                               | 18               | 34 = 2x16 +  2     |
-|  9 | item31 | 1234567890123456789012345678901   | 62090ca9ec203f22ce4e219852373d599c184ed98f6dded7e96592ed502df983ab7e0000b35d916b202ac1f9b845b3     | 31               | 47 = 2x16 + 15     |
-| 10 | item32 | 12345678901234567890123456789012  | f8c743e369e94c48d32382fde901892f5abcac6eb7b1b4590158a0c509ab4635f19e102a9bd001c5c05c92fd4e15ca63   | 32               | 48 = 3x16          |
-| 11 | item33 | 123456789012345678901234567890123 | 45c353521c775bf11264b35bd0be351e3a67b486bd75fd778036e060a31595603470dbb862f617c5f9a0689efab21546fc | 33               | 49 = 3x16 +  1     |
-
-
-### Noteworthy fields
-
-| Table       | Field           | Length [hex] | Value [hex]                                                                              |
-|-------------|-----------------|--------------|------------------------------------------------------------------------------------------|
-| Identity    | Info            |      88      | f1836771b9a05e10d3c24564c51ee347c536fc5d24e7a4298cdeaf51e26140664222715bbbab46ffd558592f |
-| vault_info  | mp              |      72      | d20d48307e52f4feff8268222df97101320cffdfc53e7946bbb78a074056e6847d8f5537                 |
-| vault_info  | key             |     230      | d94f1a742843fbfebb903c676cfc354a7254bb8ad4d4441c243f564998d736f813960468550b4d9aafe6002c6e489f0409e6355bd9580349947bb4411c8860ef59561306590b248edf02ae9d3dc231d454d11c0716ef6523b1e0038405afc44c437e5e5642a9a5c367b82b7c33b3b59b885eca |
-| preferences | secure_settings |     160      | c45b48722e47a1fbefc56e353efe33467c50ba8adf85401d773f571acedd35ff40cd5b6f550f199bace20727671398025be53f5cd30a5048c07ce24116d864bbe2abfb2992e3538b409701d1a48c11e1 |
-| preferences | dirty           |      34      | 976f4544eab3bc8c8a68babb13cb34dc05                                                       |
+| id | title  | cleartext = password              | hex(cipher) = hex(itemfield['value'])                                                              |
+|----|--------|-----------------------------------|----------------------------------------------------------------------------------------------------|
+|  1 | item1  | 1                                 | 7385c1be632c8502f982b461702a9bf955                                                                 |
+|  2 | item2  | 12                                | 705275f0a16e089062a3090af7a99925b7a0                                                               |
+|  3 | item3  | 123                               | f01d5161cc32d8ef2eb1d639c10c9c9a1974f9                                                             |
+|  4 | item14 | 12345678901234                    | 59103da1b4df3b477750a9b81026d16e317e42f86c94720513e33eecbc3e                                       |
+|  5 | item15 | 123456789012345                   | 9875c2944f18f7ebbe34e12d61d0de4a1750bea540bd10570f875a446c34da                                     |
+|  6 | item16 | 1234567890123456                  | cc9851b3ac19a0a2f3274a7b08bdf41053b4148dff40318f19717e117d5c31e3                                   |
+|  7 | item17 | 12345678901234567                 | a59f45c847e88905950b81779f56d77f135c6d8fa370ce5342b458d60d791c2969                                 |
+|  8 | item18 | 123456789012345678                | 9e6d6e30ad5b24d597ac2a0d6b41205cd99769a6397db9d4d35cf6bbc6e4e596f746                               |
+|  9 | item31 | 1234567890123456789012345678901   | 62090ca9ec203f22ce4e219852373d599c184ed98f6dded7e96592ed502df983ab7e0000b35d916b202ac1f9b845b3     |
+| 10 | item32 | 12345678901234567890123456789012  | f8c743e369e94c48d32382fde901892f5abcac6eb7b1b4590158a0c509ab4635f19e102a9bd001c5c05c92fd4e15ca63   |
+| 11 | item33 | 123456789012345678901234567890123 | 45c353521c775bf11264b35bd0be351e3a67b486bd75fd778036e060a31595603470dbb862f617c5f9a0689efab21546fc |
